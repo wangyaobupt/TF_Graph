@@ -19,10 +19,12 @@ if __name__ == "__main__":
   [input,labels] = generateDataAndLabels(batchSize, numberOfInputDims)
 
   inputTensor = tf.placeholder(tf.float32, [None, numberOfInputDims], name='inputTensor')
+  labelTensor=tf.placeholder(tf.float32, [None, 1], name='LabelTensor')
   W = tf.Variable(tf.random_uniform([numberOfInputDims, 1], -1.0, 1.0), name='weights')
   b = tf.Variable(tf.zeros([1]), name='biases')
   a = tf.nn.sigmoid(tf.matmul(inputTensor, W) + b, name='activation')
-  loss = tf.nn.l2_loss(a - labels)
+
+  loss = tf.nn.l2_loss(a - labels, name='L2Loss')
   train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
 
   sess = tf.Session()
@@ -30,7 +32,7 @@ if __name__ == "__main__":
   #print "Weight = ", sess.run(W)
   #print "Bias = ", sess.run(b)
   #print 'Loss =', sess.run(loss, feed_dict={inputTensor:input})
-
+  sess.run(train_step, feed_dict={inputTensor: input, labelTensor:labels})
   writer = tf.summary.FileWriter(log_path, sess.graph)
   writer.close()
 
