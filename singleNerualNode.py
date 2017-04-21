@@ -1,5 +1,7 @@
 import tensorflow as tf
 import numpy as np
+import os
+import os.path
 
 # generate data and labels,
 # the target value is defined as 1/(1+exp(1)),
@@ -7,33 +9,74 @@ import numpy as np
 def generateDataAndLabels(batchSize, numOfDims):
   testData = np.random.randn(batchSize, numOfDims)
   #print "TestData = ", testData[0]
-  labels = np.ones([batchSize, 1])* (1.0/(1.0 + np.exp(1)))
+  labels = np.ones([batchSize, 1])
+  for sampleIdx in range(batchSize):
+    if np.argmax(testData[sampleIdx]) == 0:
+      labels[sampleIdx] = 1
+    else:
+      labels[sampleIdx] = 0
   #print "Label = ", labels[0]
-  return [testData, labels]
+  return testData, labels
+
+def removeFileInDir(targetDir): 
+  for file in os.listdir(targetDir): 
+    targetFile = os.path.join(targetDir,  file) 
+    if os.path.isfile(targetFile):
+      print 'Delete Old Log FIle:', targetFile
+      os.remove(targetFile)
 
 if __name__ == "__main__":
   numberOfInputDims = 2
-  batchSize = 1
+  batchSize = 1000
+  iterationNumber =1000
   log_path =  "tf_writer"
+  model_path = './singleNerualNode'
 
-  [input,labels] = generateDataAndLabels(batchSize, numberOfInputDims)
+  removeFileInDir(log_path)
+
+  [inputData,labels] = generateDataAndLabels(batchSize, numberOfInputDims)
+  combinedDataAndLabel = np.column_stack((inputData, labels))
+  print combinedDataAndLabel.shape
+  np.savetxt('trainData.csv', combinedDataAndLabel , delimiter=",")
+
 
   inputTensor = tf.placeholder(tf.float32, [None, numberOfInputDims], name='inputTensor')
-  labelTensor=tf.placeholder(tf.float32, [None, 1], name='LabelTensor')
-  W = tf.Variable(tf.random_uniform([numberOfInputDims, 1], -1.0, 1.0), name='weights')
-  b = tf.Variable(tf.zeros([1]), name='biases')
-  a = tf.nn.sigmoid(tf.matmul(inputTensor, W) + b, name='activation')
+  labelTensor = tf.placeholder(tf.float32, [None, 1], name='LabelTensor')
+  with tf.name_scope('Nerual_Node'):
+    W = tf.Variable(tf.random_uniform([numberOfInputDims, 1], -1.0, 1.0), name='weights')
+    tf.summary.histogram('weights', W)
+    b = tf.Variable(tf.zeros([1]), name='biases')
+    tf.summary.histogram('biases', b)
+    a = tf.nn.sigmoid(tf.matmul(inputTensor, W) + b, name='activation')
 
-  loss = tf.nn.l2_loss(a - labels, name='L2Loss')
+  with tf.name_scope('evaluation'):
+    loss = tf.nn.l2_loss(a - labels, name='L2Loss') / batchSize
+    threshold = 0.5 
+    binary_outputs = a >= threshold
+    binary_labels = labels >= threshold
+    correct_item = tf.equal(binary_outputs, binary_labels)
+    accuracy = tf.reduce_mean(tf.cast(correct_item, tf.float32))
+  tf.summary.scalar('L2Loss',loss)
+  tf.summary.scalar('Accuracy', accuracy)
+  
   train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
+  
+  merged = tf.summary.merge_all()
+
+  all_vars = tf.global_variables()
+  saver = tf.train.Saver(all_vars)
 
   sess = tf.Session()
-  sess.run(tf.global_variables_initializer())
-  #print "Weight = ", sess.run(W)
-  #print "Bias = ", sess.run(b)
-  #print 'Loss =', sess.run(loss, feed_dict={inputTensor:input})
-  sess.run(train_step, feed_dict={inputTensor: input, labelTensor:labels})
   writer = tf.summary.FileWriter(log_path, sess.graph)
+  
+  
+  sess.run(tf.global_variables_initializer())
+  
+  for iterIdx in range(iterationNumber):
+    sess.run(train_step, feed_dict={inputTensor: inputData, labelTensor:labels})
+    summary = sess.run(merged, feed_dict={inputTensor: inputData, labelTensor:labels})
+    writer.add_summary(summary, iterIdx)
+    saver.save(sess, model_path)
   writer.close()
 
   sess.close()
