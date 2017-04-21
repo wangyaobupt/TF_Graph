@@ -37,12 +37,14 @@ if __name__ == "__main__":
 
   [inputData,labels] = generateDataAndLabels(batchSize, numberOfInputDims)
   combinedDataAndLabel = np.column_stack((inputData, labels))
-  np.savetxt('trainData.csv', combinedDataAndLabel , delimiter=",")
+  np.savetxt('trainDataAndLabel.csv', combinedDataAndLabel , delimiter=",")
+  np.savetxt('label.csv', labels , delimiter=",")
   
   embedding_var = tf.Variable(inputData, 'data_embeding')
   config = projector.ProjectorConfig()
   embedding = config.embeddings.add()
   embedding.tensor_name = embedding_var.name
+  embedding.metadata_path = 'label.csv'
   projector.visualize_embeddings(tf.summary.FileWriter(log_path), config)
 
   inputTensor = tf.placeholder(tf.float32, [None, numberOfInputDims], name='inputTensor')
