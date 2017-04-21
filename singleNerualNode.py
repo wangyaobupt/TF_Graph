@@ -2,6 +2,7 @@ import tensorflow as tf
 import numpy as np
 import os
 import os.path
+from tensorflow.contrib.tensorboard.plugins import projector
 
 # generate data and labels,
 # the target value is defined as 1/(1+exp(1)),
@@ -28,7 +29,7 @@ def removeFileInDir(targetDir):
 if __name__ == "__main__":
   numberOfInputDims = 2
   batchSize = 1000
-  iterationNumber =1000
+  iterationNumber = 1000
   log_path =  "tf_writer"
   model_path = './singleNerualNode'
 
@@ -36,14 +37,18 @@ if __name__ == "__main__":
 
   [inputData,labels] = generateDataAndLabels(batchSize, numberOfInputDims)
   combinedDataAndLabel = np.column_stack((inputData, labels))
-  print combinedDataAndLabel.shape
   np.savetxt('trainData.csv', combinedDataAndLabel , delimiter=",")
-
+  
+  embedding_var = tf.Variable(inputData, 'data_embeding')
+  config = projector.ProjectorConfig()
+  embedding = config.embeddings.add()
+  embedding.tensor_name = embedding_var.name
+  projector.visualize_embeddings(tf.summary.FileWriter(log_path), config)
 
   inputTensor = tf.placeholder(tf.float32, [None, numberOfInputDims], name='inputTensor')
   labelTensor = tf.placeholder(tf.float32, [None, 1], name='LabelTensor')
   with tf.name_scope('Nerual_Node'):
-    W = tf.Variable(tf.random_uniform([numberOfInputDims, 1], -1.0, 1.0), name='weights')
+    W = tf.Variable(tf.random_normal([numberOfInputDims, 1]), name='weights')
     tf.summary.histogram('weights', W)
     b = tf.Variable(tf.zeros([1]), name='biases')
     tf.summary.histogram('biases', b)
@@ -59,7 +64,7 @@ if __name__ == "__main__":
   tf.summary.scalar('L2Loss',loss)
   tf.summary.scalar('Accuracy', accuracy)
   
-  train_step = tf.train.AdamOptimizer(1e-4).minimize(loss)
+  train_step = tf.train.AdamOptimizer(1e-2).minimize(loss)
   
   merged = tf.summary.merge_all()
 
@@ -69,13 +74,14 @@ if __name__ == "__main__":
   sess = tf.Session()
   writer = tf.summary.FileWriter(log_path, sess.graph)
   
-  
   sess.run(tf.global_variables_initializer())
   
   for iterIdx in range(iterationNumber):
     sess.run(train_step, feed_dict={inputTensor: inputData, labelTensor:labels})
     summary = sess.run(merged, feed_dict={inputTensor: inputData, labelTensor:labels})
     writer.add_summary(summary, iterIdx)
+    if iterIdx %50 == 0:
+        writer.flush()
     saver.save(sess, model_path)
   writer.close()
 
