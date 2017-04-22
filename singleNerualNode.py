@@ -5,8 +5,6 @@ import os.path
 from tensorflow.contrib.tensorboard.plugins import projector
 
 # generate data and labels,
-# the target value is defined as 1/(1+exp(1)),
-# Thus, this is a regression issue, fitting a curve satisfying w1*x1 + w2*x2 + .. wnXn + bias = -1
 def generateDataAndLabels(batchSize, numOfDims):
   testData = np.random.randn(batchSize, numOfDims)
   #print "TestData = ", testData[0]
